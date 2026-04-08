@@ -40,9 +40,13 @@ class TestContactHarvester(unittest.TestCase):
             self.assertIn("company", contact)
             self.assertIn("email", contact)
             
-        # Verify LinkedIn API was used (should get enriched results)
-        linkedin_contacts = [c for c in contacts if "linkedin" in c.get("id", "")]
+        # Verify LinkedIn API was used (should get results with source=linkedin_api)
+        linkedin_contacts = [c for c in contacts if c.get("source") == "linkedin_api"]
         self.assertGreater(len(linkedin_contacts), 0, "No LinkedIn API results found")
+        
+        # Verify API stats were tracked
+        stats = self.harvester.get_stats()
+        self.assertGreater(stats["api_calls"]["linkedin_calls"], 0)
 
     def test_fallback_to_playwright(self):
         """Test that Playwright fallback returns mock results."""

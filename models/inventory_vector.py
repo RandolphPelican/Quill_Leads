@@ -154,10 +154,88 @@ class InventoryVectorDB:
         
         return mock_results
 
-    def migrate_to_pinecone(self, pinecone_index_name: str):
-        """Stub for Pinecone migration."""
-        logger.info(f"Pinecone migration stub for index: {pinecone_index_name}")
-        print(f"Would migrate to Pinecone index: {pinecone_index_name}")
+    def migrate_to_pinecone(self, pinecone_index_name: str = None):
+        """Migrate Chroma DB to Pinecone vector database."""
+        try:
+            # Import Pinecone client
+            try:
+                import pinecone
+                from pinecone import Pinecone, ServerlessSpec
+                PINECONE_AVAILABLE = True
+            except ImportError:
+                logger.error("Pinecone client not available. Install with: pip install pinecone-client")
+                PINECONE_AVAILABLE = False
+                return
+            
+            # Get Pinecone credentials from environment variables
+            pinecone_api_key = os.getenv("PINECONE_API_KEY")
+            pinecone_environment = os.getenv("PINECONE_ENVIRONMENT", "us-west1-gcp")
+            index_name = pinecone_index_name or os.getenv("PINECONE_INDEX_NAME", "quilleads-inventory")
+            
+            if not pinecone_api_key:
+                logger.error("Pinecone API key not provided. Set PINECONE_API_KEY environment variable.")
+                return
+            
+            # Initialize Pinecone
+            pinecone.init(api_key=pinecone_api_key, environment=pinecone_environment)
+            
+            # Check if index exists, create if not
+            if index_name not in pinecone.list_indexes():
+                logger.info(f"Creating Pinecone index: {index_name}")
+                pinecone.create_index(
+                    name=index_name,
+                    metric="cosine",
+                    dimension=384,  # Typical for sentence-transformers
+                    spec=ServerlessSpec(
+                        cloud="aws",
+                        region="us-west-2"
+                    )
+                )
+                # Wait for index to be ready
+                while not pinecone.describe_index(index_name).status['ready']:
+                    time.sleep(1)
+            
+            # Connect to index
+            index = pinecone.Index(index_name)
+            
+            # Get all data from Chroma DB
+            if not self.collection:
+                logger.error("Chroma collection not available for migration")
+                return
+            
+            # Fetch all vectors from Chroma
+            try:
+                # Note: This is a simplified approach. In a real implementation,
+                # you would need to handle pagination for large datasets
+                chroma_data = self.collection.get()
+                
+                # Prepare data for Pinecone
+                vectors = []
+                for i, (id, vector) in enumerate(zip(chroma_data['ids'], chroma_data['embeddings'])):
+                    metadata = chroma_data['metadatas'][i] if 'metadatas' in chroma_data else {}
+                    
+                    vectors.append({
+                        "id": id,
+                        "values": vector,
+                        "metadata": metadata
+                    })
+                
+                # Upsert data to Pinecone in batches
+                batch_size = 100
+                for i in range(0, len(vectors), batch_size):
+                    batch = vectors[i:i + batch_size]
+                    index.upsert(batch)
+                    logger.info(f"Migrated batch {i//batch_size + 1}: {len(batch)} vectors")
+                
+                logger.info(f"Successfully migrated {len(vectors)} vectors to Pinecone index: {index_name}")
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch data from Chroma: {e}")
+                return
+            
+        except Exception as e:
+            logger.error(f"Pinecone migration failed: {e}")
+            return
 
     def load_mock_inventory(self):
         """Load mock inventory into the database."""

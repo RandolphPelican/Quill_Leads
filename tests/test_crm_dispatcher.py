@@ -47,6 +47,9 @@ class TestCRMDispatcher(unittest.TestCase):
         self.assertEqual(stats["total_dispatched"], 1)
         self.assertEqual(stats["salesforce_success"], 1)
         self.assertEqual(stats["hubspot_success"], 0)
+        
+        # Verify API stats were tracked
+        self.assertEqual(stats["api_calls"]["salesforce_calls"], 1)
 
     def test_fallback_to_hubspot(self):
         """Test that fallback to HubSpot works when Salesforce fails."""
