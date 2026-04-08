@@ -3,3 +3,5 @@ pydantic==1.10.16
 langgraph==0.0.30
 playwright==1.40.0
 pyppeteer-stealth==1.0.5
+sentence-transformers==2.2.2
+langchain==0.1.16
