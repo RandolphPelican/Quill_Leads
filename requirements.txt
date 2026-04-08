@@ -7,3 +7,5 @@ sentence-transformers==2.2.2
 langchain==0.1.16
 simple-salesforce==1.12.6
 requests==2.31.0
+langsmith==0.0.40
+pandas==2.2.2
