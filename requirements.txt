@@ -5,3 +5,5 @@ playwright==1.40.0
 pyppeteer-stealth==1.0.5
 sentence-transformers==2.2.2
 langchain==0.1.16
+simple-salesforce==1.12.6
+requests==2.31.0
